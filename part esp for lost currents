@@ -1,0 +1,71 @@
+-- Highlights all parts named "gold" in the workspace
+
+local highlightColor = Color3.fromRGB(255, 215, 0) -- Gold color
+local scrapsColor = Color3.fromRGB(128, 128, 128) -- Scraps color (gray)
+local highlightTransparency = 0.5
+
+for _, part in ipairs(workspace:GetDescendants()) do
+    if part:IsA("BasePart") then
+        if part.Name:lower() == "gold" then
+            part.Color = highlightColor
+            part.Material = Enum.Material.Neon
+            part.Transparency = highlightTransparency
+
+            -- ESP: BillboardGui overlay for gold
+            local esp = Instance.new("BillboardGui")
+            esp.Adornee = part
+            esp.Size = UDim2.new(0, 100, 0, 40)
+            esp.AlwaysOnTop = true
+            esp.LightInfluence = 0
+            esp.StudsOffset = Vector3.new(0, part.Size.Y/2 + 0.5, 0)
+            esp.Parent = part
+
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(1, 0, 1, 0)
+            frame.BackgroundTransparency = 0.3
+            frame.BackgroundColor3 = highlightColor
+            frame.BorderSizePixel = 0
+            frame.Parent = esp
+
+            local text = Instance.new("TextLabel")
+            text.Size = UDim2.new(1, 0, 1, 0)
+            text.BackgroundTransparency = 1
+            text.Text = "GOLD"
+            text.TextColor3 = Color3.new(1, 1, 1)
+            text.TextStrokeTransparency = 0.5
+            text.TextScaled = true
+            text.Font = Enum.Font.GothamBold
+            text.Parent = esp
+        elseif part.Name:lower() == "scraps" then
+            part.Color = scrapsColor
+            part.Material = Enum.Material.Neon
+            part.Transparency = highlightTransparency
+
+            -- ESP: BillboardGui overlay for scraps
+            local esp = Instance.new("BillboardGui")
+            esp.Adornee = part
+            esp.Size = UDim2.new(0, 100, 0, 40)
+            esp.AlwaysOnTop = true
+            esp.LightInfluence = 0
+            esp.StudsOffset = Vector3.new(0, part.Size.Y/2 + 0.5, 0)
+            esp.Parent = part
+
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(1, 0, 1, 0)
+            frame.BackgroundTransparency = 0.3
+            frame.BackgroundColor3 = scrapsColor
+            frame.BorderSizePixel = 0
+            frame.Parent = esp
+
+            local text = Instance.new("TextLabel")
+            text.Size = UDim2.new(1, 0, 1, 0)
+            text.BackgroundTransparency = 1
+            text.Text = "SCRAPS"
+            text.TextColor3 = Color3.new(1, 1, 1)
+            text.TextStrokeTransparency = 0.5
+            text.TextScaled = true
+            text.Font = Enum.Font.GothamBold
+            text.Parent = esp
+        end
+    end
+end
