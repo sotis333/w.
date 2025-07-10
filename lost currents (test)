@@ -1,0 +1,93 @@
+-- Gold Tracker Script
+-- Finds all gold parts, displays a label next to each, and draws a tracer from screen center to each gold part
+
+local camera = workspace.CurrentCamera
+local player = game.Players.LocalPlayer
+
+-- Utility: Find all gold parts
+local function getGoldParts()
+    local goldParts = {}
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if part:IsA('BasePart') and part.Name:lower():find('gold') then
+            table.insert(goldParts, part)
+        elseif part:IsA('BasePart') and part.BrickColor == BrickColor.new('Bright yellow') then
+            table.insert(goldParts, part)
+        end
+    end
+    return goldParts
+end
+
+-- Drawing API (Synapse X, ScriptWare, etc.)
+local Drawing = Drawing or getgenv().Drawing
+
+
+local goldDrawings = {}
+local goldParts = {}
+local lastScan = 0
+local scanInterval = 1 -- seconds between gold part scans
+
+local function clearDrawings()
+    for _, tbl in ipairs(goldDrawings) do
+        if tbl.text then tbl.text:Remove() end
+        if tbl.line then tbl.line:Remove() end
+    end
+    goldDrawings = {}
+end
+
+
+local function createGoldDrawings()
+    clearDrawings()
+    for _, part in ipairs(goldParts) do
+        local text = Drawing.new('Text')
+        text.Text = 'GOLD'
+        text.Size = 18 -- smaller text
+        text.Center = true
+        text.Outline = true
+        text.Color = Color3.new(1, 1, 1) -- white color
+        text.Visible = true
+
+        local line = Drawing.new('Line')
+        line.Color = Color3.new(1, 1, 1) -- white color
+        line.Thickness = 2
+        line.Transparency = 0.7 -- more invisible
+        line.Visible = true
+
+        table.insert(goldDrawings, {part = part, text = text, line = line})
+    end
+end
+
+local function updateGoldDrawingPositions()
+    for i, tbl in ipairs(goldDrawings) do
+        local part = tbl.part
+        local pos, onScreen = camera:WorldToViewportPoint(part.Position)
+        if onScreen then
+            tbl.text.Position = Vector2.new(pos.X, pos.Y - 40)
+            tbl.text.Visible = true
+            tbl.line.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+            tbl.line.To = Vector2.new(pos.X, pos.Y)
+            tbl.line.Visible = true
+        else
+            tbl.text.Visible = false
+            tbl.line.Visible = false
+        end
+    end
+end
+
+local runService = game:GetService('RunService')
+local connection
+connection = runService.RenderStepped:Connect(function()
+    local now = tick()
+    if now - lastScan > scanInterval then
+        goldParts = getGoldParts()
+        createGoldDrawings()
+        lastScan = now
+    end
+    updateGoldDrawingPositions()
+end)
+
+if getgenv then
+    getgenv()._goldtracker_unload = function()
+        if connection then connection:Disconnect() end
+        clearDrawings()
+    end
+end
