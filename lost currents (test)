@@ -1,10 +1,59 @@
--- Gold Tracker Script
--- Finds all gold parts, displays a label next to each, and draws a tracer from screen center to each gold part
+
+-- LinoriaLib setup
+local repo = 'https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
+local ThemeManager = loadstring(game:HttpGet(repo .. 'addons/ThemeManager.lua'))()
+local SaveManager = loadstring(game:HttpGet(repo .. 'addons/SaveManager.lua'))()
+
+local Window = Library:CreateWindow({
+    Title = 'Gold Tracker',
+    Center = true,
+    AutoShow = true,
+    TabPadding = 8,
+    MenuFadeTime = 0.2
+})
+
+local Tabs = {
+    Main = Window:AddTab('Main'),
+    ['UI Settings'] = Window:AddTab('UI Settings'),
+}
+
+
+local GoldGroup = Tabs.Main:AddLeftGroupbox('Gold Tracking')
+local ScrapGroup = Tabs.Main:AddLeftGroupbox('Scrap Tracking')
+local HelmetGroup = Tabs.Main:AddLeftGroupbox('Helmet Tracking')
 
 local camera = workspace.CurrentCamera
-local player = game.Players.LocalPlayer
+local Drawing = Drawing or getgenv().Drawing
 
--- Utility: Find all gold parts
+
+local goldDrawings = {}
+local scrapDrawings = {}
+local helmetDrawings = {}
+
+local goldOutlineEnabled = false
+local scrapOutlineEnabled = false
+local helmetOutlineEnabled = false
+local goldNameEnabled = true
+local scrapNameEnabled = true
+local helmetNameEnabled = true
+local goldParts = {}
+local scrapParts = {}
+local helmetParts = {}
+local lastScan = 0
+local scanInterval = 1
+
+local tracersEnabled = true
+local espEnabled = false -- ESP is off by default
+local scrapEnabled = false
+local helmetEnabled = false
+
+local flyEnabled = false
+local flySpeed = 5
+local walkSpeed = 16
+local flyConnection
+
+
 local function getGoldParts()
     local goldParts = {}
     for _, part in ipairs(workspace:GetDescendants()) do
@@ -17,77 +66,476 @@ local function getGoldParts()
     return goldParts
 end
 
--- Drawing API (Synapse X, ScriptWare, etc.)
-local Drawing = Drawing or getgenv().Drawing
+local function getScrapParts()
+    local scrapParts = {}
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if part:IsA('BasePart') and part.Name:lower():find('scrap') then
+            table.insert(scrapParts, part)
+        end
+    end
+    return scrapParts
+end
 
+local function getHelmetParts()
+    local helmetParts = {}
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if part:IsA('BasePart') and part.Name:lower():find('helmet') then
+            table.insert(helmetParts, part)
+        end
+    end
+    return helmetParts
+end
 
-local goldDrawings = {}
-local goldParts = {}
-local lastScan = 0
-local scanInterval = 1 -- seconds between gold part scans
 
 local function clearDrawings()
     for _, tbl in ipairs(goldDrawings) do
         if tbl.text then tbl.text:Remove() end
         if tbl.line then tbl.line:Remove() end
+        if tbl.box then tbl.box:Remove() end
     end
     goldDrawings = {}
+    for _, tbl in ipairs(scrapDrawings) do
+        if tbl.text then tbl.text:Remove() end
+        if tbl.line then tbl.line:Remove() end
+        if tbl.box then tbl.box:Remove() end
+    end
+    scrapDrawings = {}
+    for _, tbl in ipairs(helmetDrawings) do
+        if tbl.text then tbl.text:Remove() end
+        if tbl.line then tbl.line:Remove() end
+        if tbl.box then tbl.box:Remove() end
+    end
+    helmetDrawings = {}
 end
 
 
 local function createGoldDrawings()
-    clearDrawings()
     for _, part in ipairs(goldParts) do
         local text = Drawing.new('Text')
         text.Text = 'GOLD'
-        text.Size = 18 -- smaller text
+        text.Size = 18
         text.Center = true
         text.Outline = true
-        text.Color = Color3.new(1, 1, 1) -- white color
+        text.Color = Color3.new(1, 1, 1)
         text.Visible = true
 
         local line = Drawing.new('Line')
-        line.Color = Color3.new(1, 1, 1) -- white color
+        line.Color = Color3.new(1, 1, 1)
         line.Thickness = 2
-        line.Transparency = 0.7 -- more invisible
-        line.Visible = true
+        line.Transparency = 0.7
+        line.Visible = tracersEnabled
 
-        table.insert(goldDrawings, {part = part, text = text, line = line})
+        local box = Drawing.new('Quad')
+        box.Visible = false
+        box.Color = Color3.new(1, 1, 0)
+        box.Transparency = 0.3
+
+        table.insert(goldDrawings, {part = part, text = text, line = line, box = box})
     end
 end
 
-local function updateGoldDrawingPositions()
+local function createScrapDrawings()
+    for _, part in ipairs(scrapParts) do
+        local text = Drawing.new('Text')
+        text.Text = 'SCRAP'
+        text.Size = 18
+        text.Center = true
+        text.Outline = true
+        text.Color = Color3.new(0.7, 0.7, 0.7) -- gray
+        text.Visible = true
+
+        local line = Drawing.new('Line')
+        line.Color = Color3.new(0.7, 0.7, 0.7)
+        line.Thickness = 2
+        line.Transparency = 0.7
+        line.Visible = tracersEnabled
+
+        local box = Drawing.new('Quad')
+        box.Visible = false
+        box.Color = Color3.new(0.7, 0.4, 0.1) -- brownish orange
+        box.Transparency = 0.3
+
+        table.insert(scrapDrawings, {part = part, text = text, line = line, box = box})
+    end
+end
+
+local function createHelmetDrawings()
+    for _, part in ipairs(helmetParts) do
+        local text = Drawing.new('Text')
+        text.Text = 'HELMET'
+        text.Size = 18
+        text.Center = true
+        text.Outline = true
+        text.Color = Color3.new(0.3, 0.7, 1) -- blue
+        text.Visible = true
+
+        local line = Drawing.new('Line')
+        line.Color = Color3.new(0.3, 0.7, 1)
+        line.Thickness = 2
+        line.Transparency = 0.7
+        line.Visible = tracersEnabled
+
+        local box = Drawing.new('Quad')
+        box.Visible = false
+        box.Color = Color3.new(0.4, 0.2, 0.1) -- brown
+        box.Transparency = 0.3
+
+        table.insert(helmetDrawings, {part = part, text = text, line = line, box = box})
+    end
+end
+
+
+local function updateAllDrawingPositions()
+    -- Gold
     for i, tbl in ipairs(goldDrawings) do
         local part = tbl.part
         local pos, onScreen = camera:WorldToViewportPoint(part.Position)
-        if onScreen then
+        if goldOutlineEnabled then
+            tbl.box.Visible = onScreen
+            if onScreen then
+                local size = part.Size
+                local cf = part.CFrame
+                local corners = {
+                    camera:WorldToViewportPoint((cf * CFrame.new(-size.X/2, -size.Y/2, -size.Z/2)).Position),
+                    camera:WorldToViewportPoint((cf * CFrame.new(-size.X/2, size.Y/2, -size.Z/2)).Position),
+                    camera:WorldToViewportPoint((cf * CFrame.new(size.X/2, size.Y/2, -size.Z/2)).Position),
+                    camera:WorldToViewportPoint((cf * CFrame.new(size.X/2, -size.Y/2, -size.Z/2)).Position)
+                }
+                tbl.box.PointA = Vector2.new(corners[1].X, corners[1].Y)
+                tbl.box.PointB = Vector2.new(corners[2].X, corners[2].Y)
+                tbl.box.PointC = Vector2.new(corners[3].X, corners[3].Y)
+                tbl.box.PointD = Vector2.new(corners[4].X, corners[4].Y)
+            end
+        else
+            tbl.box.Visible = false
+        end
+        -- Only show text if ESP is enabled, outline is not, and name toggle is on
+        local showESP = espEnabled and not goldOutlineEnabled
+        tbl.text.Visible = showESP and goldNameEnabled and onScreen or false
+        tbl.line.Visible = showESP and tracersEnabled and onScreen or false
+        if showESP and onScreen then
             tbl.text.Position = Vector2.new(pos.X, pos.Y - 40)
-            tbl.text.Visible = true
             tbl.line.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
             tbl.line.To = Vector2.new(pos.X, pos.Y)
-            tbl.line.Visible = true
+        end
+    end
+    -- Scrap
+    for i, tbl in ipairs(scrapDrawings) do
+        local part = tbl.part
+        local pos, onScreen = camera:WorldToViewportPoint(part.Position)
+        if scrapOutlineEnabled then
+            tbl.box.Visible = onScreen
+            if onScreen then
+                local size = part.Size
+                local cf = part.CFrame
+                local corners = {
+                    camera:WorldToViewportPoint((cf * CFrame.new(-size.X/2, -size.Y/2, -size.Z/2)).Position),
+                    camera:WorldToViewportPoint((cf * CFrame.new(-size.X/2, size.Y/2, -size.Z/2)).Position),
+                    camera:WorldToViewportPoint((cf * CFrame.new(size.X/2, size.Y/2, -size.Z/2)).Position),
+                    camera:WorldToViewportPoint((cf * CFrame.new(size.X/2, -size.Y/2, -size.Z/2)).Position)
+                }
+                tbl.box.PointA = Vector2.new(corners[1].X, corners[1].Y)
+                tbl.box.PointB = Vector2.new(corners[2].X, corners[2].Y)
+                tbl.box.PointC = Vector2.new(corners[3].X, corners[3].Y)
+                tbl.box.PointD = Vector2.new(corners[4].X, corners[4].Y)
+            end
         else
-            tbl.text.Visible = false
-            tbl.line.Visible = false
+            tbl.box.Visible = false
+        end
+        local showESP = scrapEnabled and not scrapOutlineEnabled
+        tbl.text.Visible = showESP and scrapNameEnabled and onScreen or false
+        tbl.line.Visible = showESP and tracersEnabled and onScreen or false
+        if showESP and onScreen then
+            tbl.text.Position = Vector2.new(pos.X, pos.Y - 40)
+            tbl.line.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+            tbl.line.To = Vector2.new(pos.X, pos.Y)
+        end
+    end
+    -- Helmet
+    for i, tbl in ipairs(helmetDrawings) do
+        local part = tbl.part
+        local pos, onScreen = camera:WorldToViewportPoint(part.Position)
+        if helmetOutlineEnabled then
+            tbl.box.Visible = onScreen
+            if onScreen then
+                local size = part.Size
+                local cf = part.CFrame
+                local corners = {
+                    camera:WorldToViewportPoint((cf * CFrame.new(-size.X/2, -size.Y/2, -size.Z/2)).Position),
+                    camera:WorldToViewportPoint((cf * CFrame.new(-size.X/2, size.Y/2, -size.Z/2)).Position),
+                    camera:WorldToViewportPoint((cf * CFrame.new(size.X/2, size.Y/2, -size.Z/2)).Position),
+                    camera:WorldToViewportPoint((cf * CFrame.new(size.X/2, -size.Y/2, -size.Z/2)).Position)
+                }
+                tbl.box.PointA = Vector2.new(corners[1].X, corners[1].Y)
+                tbl.box.PointB = Vector2.new(corners[2].X, corners[2].Y)
+                tbl.box.PointC = Vector2.new(corners[3].X, corners[3].Y)
+                tbl.box.PointD = Vector2.new(corners[4].X, corners[4].Y)
+            end
+        else
+            tbl.box.Visible = false
+        end
+        local showESP = helmetEnabled and not helmetOutlineEnabled
+        tbl.text.Visible = showESP and helmetNameEnabled and onScreen or false
+        tbl.line.Visible = showESP and tracersEnabled and onScreen or false
+        if showESP and onScreen then
+            tbl.text.Position = Vector2.new(pos.X, pos.Y - 40)
+            tbl.line.From = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
+            tbl.line.To = Vector2.new(pos.X, pos.Y)
         end
     end
 end
+
 
 local runService = game:GetService('RunService')
 local connection
 connection = runService.RenderStepped:Connect(function()
     local now = tick()
-    if now - lastScan > scanInterval then
+    if espEnabled and (now - lastScan > scanInterval) then
         goldParts = getGoldParts()
+        clearDrawings()
         createGoldDrawings()
+    end
+    if scrapEnabled and (now - lastScan > scanInterval) then
+        scrapParts = getScrapParts()
+        clearDrawings()
+        createScrapDrawings()
+    end
+    if helmetEnabled and (now - lastScan > scanInterval) then
+        helmetParts = getHelmetParts()
+        clearDrawings()
+        createHelmetDrawings()
         lastScan = now
     end
-    updateGoldDrawingPositions()
+    updateAllDrawingPositions()
+
+    -- Always enforce walkspeed
+    local player = game.Players.LocalPlayer
+    local character = player and player.Character
+    if character and character:FindFirstChild('Humanoid') then
+        if character.Humanoid.WalkSpeed ~= walkSpeed then
+            character.Humanoid.WalkSpeed = walkSpeed
+        end
+    end
 end)
 
-if getgenv then
-    getgenv()._goldtracker_unload = function()
-        if connection then connection:Disconnect() end
-        clearDrawings()
+-- Fly logic
+local function startFly()
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local humanoidRootPart = character:WaitForChild('HumanoidRootPart')
+    local userInput = game:GetService('UserInputService')
+    local flyDirection = Vector3.new()
+
+    if flyConnection then flyConnection:Disconnect() end
+    flyConnection = runService.RenderStepped:Connect(function()
+        if not flyEnabled then return end
+        flyDirection = Vector3.new()
+        if userInput:IsKeyDown(Enum.KeyCode.W) then flyDirection = flyDirection + camera.CFrame.LookVector end
+        if userInput:IsKeyDown(Enum.KeyCode.S) then flyDirection = flyDirection - camera.CFrame.LookVector end
+        if userInput:IsKeyDown(Enum.KeyCode.A) then flyDirection = flyDirection - camera.CFrame.RightVector end
+        if userInput:IsKeyDown(Enum.KeyCode.D) then flyDirection = flyDirection + camera.CFrame.RightVector end
+        if userInput:IsKeyDown(Enum.KeyCode.Space) then flyDirection = flyDirection + camera.CFrame.UpVector end
+        if userInput:IsKeyDown(Enum.KeyCode.LeftControl) then flyDirection = flyDirection - camera.CFrame.UpVector end
+        if flyDirection.Magnitude > 0 then
+            humanoidRootPart.Velocity = flyDirection.Unit * flySpeed * 10
+        else
+            humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+        end
+    end)
+end
+
+local function stopFly()
+    if flyConnection then flyConnection:Disconnect() end
+    local player = game.Players.LocalPlayer
+    local character = player.Character
+    if character and character:FindFirstChild('HumanoidRootPart') then
+        character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+    end
+    if character and character:FindFirstChild('Humanoid') then
+        character.Humanoid.WalkSpeed = walkSpeed
     end
 end
+
+
+
+GoldGroup:AddToggle('ESPEnabled', {
+    Text = 'Enable Gold ESP',
+    Default = false,
+    Tooltip = 'Show/hide gold ESP (text and tracers)',
+    Callback = function(val)
+        espEnabled = val
+        if espEnabled then
+            goldParts = getGoldParts()
+            clearDrawings()
+            createGoldDrawings()
+        else
+            clearDrawings()
+        end
+        updateAllDrawingPositions()
+    end
+})
+
+GoldGroup:AddToggle('TracersToggle', {
+    Text = 'Show Tracers',
+    Default = true,
+    Tooltip = 'Toggle tracers from screen center to gold parts',
+    Callback = function(val)
+        tracersEnabled = val
+        updateAllDrawingPositions()
+    end
+})
+
+GoldGroup:AddToggle('GoldOutlineToggle', {
+    Text = 'Gold Outline',
+    Default = false,
+    Tooltip = 'Show filled transparent yellow outline for gold',
+    Callback = function(val)
+        goldOutlineEnabled = val
+        updateAllDrawingPositions()
+    end
+})
+GoldGroup:AddToggle('GoldNameToggle', {
+    Text = 'Show Gold Name',
+    Default = true,
+    Tooltip = 'Show/hide gold name label',
+    Callback = function(val)
+        goldNameEnabled = val
+        updateAllDrawingPositions()
+    end
+})
+GoldGroup:AddLabel('Gold parts are marked with white text and tracers.')
+
+ScrapGroup:AddToggle('ScrapESPEnabled', {
+    Text = 'Enable Scrap ESP',
+    Default = false,
+    Tooltip = 'Show/hide scrap ESP (text and tracers)',
+    Callback = function(val)
+        scrapEnabled = val
+        if scrapEnabled then
+            scrapParts = getScrapParts()
+            clearDrawings()
+            createScrapDrawings()
+        else
+            clearDrawings()
+        end
+        updateAllDrawingPositions()
+    end
+})
+
+ScrapGroup:AddToggle('ScrapOutlineToggle', {
+    Text = 'Scrap Outline',
+    Default = false,
+    Tooltip = 'Show filled transparent brown-orange outline for scrap',
+    Callback = function(val)
+        scrapOutlineEnabled = val
+        updateAllDrawingPositions()
+    end
+})
+ScrapGroup:AddToggle('ScrapNameToggle', {
+    Text = 'Show Scrap Name',
+    Default = true,
+    Tooltip = 'Show/hide scrap name label',
+    Callback = function(val)
+        scrapNameEnabled = val
+        updateAllDrawingPositions()
+    end
+})
+ScrapGroup:AddLabel('Scrap parts are marked with gray text and tracers.')
+
+HelmetGroup:AddToggle('HelmetESPEnabled', {
+    Text = 'Enable Helmet ESP',
+    Default = false,
+    Tooltip = 'Show/hide helmet ESP (text and tracers)',
+    Callback = function(val)
+        helmetEnabled = val
+        if helmetEnabled then
+            helmetParts = getHelmetParts()
+            clearDrawings()
+            createHelmetDrawings()
+        else
+            clearDrawings()
+        end
+        updateAllDrawingPositions()
+    end
+})
+
+HelmetGroup:AddToggle('HelmetOutlineToggle', {
+    Text = 'Helmet Outline',
+    Default = false,
+    Tooltip = 'Show filled transparent brown outline for helmet',
+    Callback = function(val)
+        helmetOutlineEnabled = val
+        updateAllDrawingPositions()
+    end
+})
+HelmetGroup:AddToggle('HelmetNameToggle', {
+    Text = 'Show Helmet Name',
+    Default = true,
+    Tooltip = 'Show/hide helmet name label',
+    Callback = function(val)
+        helmetNameEnabled = val
+        updateAllDrawingPositions()
+    end
+})
+HelmetGroup:AddLabel('Helmet parts are marked with blue text and tracers.')
+
+local FlyGroup = Tabs.Main:AddRightGroupbox('Fly')
+FlyGroup:AddToggle('FlyEnabled', {
+    Text = 'Enable Fly',
+    Default = false,
+    Tooltip = 'Toggle fly mode',
+    Callback = function(val)
+        flyEnabled = val
+        if flyEnabled then
+            startFly()
+        else
+            stopFly()
+        end
+    end
+})
+
+
+FlyGroup:AddSlider('FlySpeed', {
+    Text = 'Fly Speed',
+    Default = 5,
+    Min = 1,
+    Max = 100,
+    Rounding = 0,
+    Compact = false,
+    Callback = function(val)
+        flySpeed = val
+    end
+})
+
+FlyGroup:AddSlider('WalkSpeed', {
+    Text = 'Walk Speed',
+    Default = 16,
+    Min = 13,
+    Max = 100,
+    Rounding = 0,
+    Compact = false,
+    Callback = function(val)
+        walkSpeed = val
+        local player = game.Players.LocalPlayer
+        local character = player.Character
+        if character and character:FindFirstChild('Humanoid') then
+            character.Humanoid.WalkSpeed = walkSpeed
+        end
+    end
+})
+
+-- UI Settings tab setup (standard LinoriaLib)
+local MenuGroup = Tabs['UI Settings']:AddLeftGroupbox('Menu')
+MenuGroup:AddButton('Unload', function() Library:Unload() end)
+MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'End', NoUI = true, Text = 'Menu keybind' })
+Library.ToggleKeybind = Options.MenuKeybind
+
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
+ThemeManager:SetFolder('GoldTracker')
+SaveManager:SetFolder('GoldTracker/specific-game')
+SaveManager:BuildConfigSection(Tabs['UI Settings'])
+ThemeManager:ApplyToTab(Tabs['UI Settings'])
+SaveManager:LoadAutoloadConfig()
