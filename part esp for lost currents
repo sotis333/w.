@@ -36,12 +36,12 @@ for _, part in ipairs(workspace:GetDescendants()) do
             text.TextScaled = true
             text.Font = Enum.Font.GothamBold
             text.Parent = esp
-        elseif part.Name:lower() == "scraps" then
+        elseif part.Name:lower() == "scrap" then
             part.Color = scrapsColor
             part.Material = Enum.Material.Neon
             part.Transparency = highlightTransparency
 
-            -- ESP: BillboardGui overlay for scraps
+            -- ESP: BillboardGui overlay for scrap
             local esp = Instance.new("BillboardGui")
             esp.Adornee = part
             esp.Size = UDim2.new(0, 100, 0, 40)
@@ -60,7 +60,7 @@ for _, part in ipairs(workspace:GetDescendants()) do
             local text = Instance.new("TextLabel")
             text.Size = UDim2.new(1, 0, 1, 0)
             text.BackgroundTransparency = 1
-            text.Text = "SCRAPS"
+            text.Text = "SCRAP"
             text.TextColor3 = Color3.new(1, 1, 1)
             text.TextStrokeTransparency = 0.5
             text.TextScaled = true
