@@ -1,7 +1,9 @@
 -- Highlights all parts named "gold" in the workspace
 
+
 local highlightColor = Color3.fromRGB(255, 215, 0) -- Gold color
-local scrapsColor = Color3.fromRGB(128, 128, 128) -- Scraps color (gray)
+local scrapsColor = Color3.fromRGB(128, 128, 128) -- Scrap color (gray)
+local helmetColor = Color3.fromRGB(0, 170, 255) -- Helmet color (blue)
 local highlightTransparency = 0.5
 
 for _, part in ipairs(workspace:GetDescendants()) do
@@ -61,6 +63,36 @@ for _, part in ipairs(workspace:GetDescendants()) do
             text.Size = UDim2.new(1, 0, 1, 0)
             text.BackgroundTransparency = 1
             text.Text = "SCRAP"
+            text.TextColor3 = Color3.new(1, 1, 1)
+            text.TextStrokeTransparency = 0.5
+            text.TextScaled = true
+            text.Font = Enum.Font.GothamBold
+            text.Parent = esp
+        elseif part.Name:lower() == "helmet" then
+            part.Color = helmetColor
+            part.Material = Enum.Material.Neon
+            part.Transparency = highlightTransparency
+
+            -- ESP: BillboardGui overlay for helmet
+            local esp = Instance.new("BillboardGui")
+            esp.Adornee = part
+            esp.Size = UDim2.new(0, 100, 0, 40)
+            esp.AlwaysOnTop = true
+            esp.LightInfluence = 0
+            esp.StudsOffset = Vector3.new(0, part.Size.Y/2 + 0.5, 0)
+            esp.Parent = part
+
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(1, 0, 1, 0)
+            frame.BackgroundTransparency = 0.3
+            frame.BackgroundColor3 = helmetColor
+            frame.BorderSizePixel = 0
+            frame.Parent = esp
+
+            local text = Instance.new("TextLabel")
+            text.Size = UDim2.new(1, 0, 1, 0)
+            text.BackgroundTransparency = 1
+            text.Text = "HELMET"
             text.TextColor3 = Color3.new(1, 1, 1)
             text.TextStrokeTransparency = 0.5
             text.TextScaled = true
