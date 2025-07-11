@@ -160,7 +160,7 @@ Tab:CreateToggle({
 Tab:CreateButton({
    Name = "Highlight Map",
    Callback = function()
-      highlightParts("map", mapColor, "MAP")
+      highlightParts("maps", mapColor, "MAPS")
    end,
 })
 
@@ -357,6 +357,53 @@ PlayerTab:CreateSlider({
         walkSpeed = value
         setWalkSpeed(walkSpeed)
         monitorWalkSpeed()
+    end,
+})
+
+
+-- Misc tab: Instant interact on prompts
+local MiscTab = Window:CreateTab("Misc", 4483362458)
+local MiscSection = MiscTab:CreateSection("Miscellaneous")
+
+local instantInteractEnabled = false
+local promptConnection = nil
+
+local function enableInstantInteract()
+    if promptConnection then promptConnection:Disconnect() end
+    promptConnection = game:GetService("UserInputService").InputBegan:Connect(function(input, processed)
+        if not instantInteractEnabled then return end
+        if processed then return end
+        if input.KeyCode == Enum.KeyCode.E then
+            for _, prompt in ipairs(workspace:GetDescendants()) do
+                if prompt:IsA("ProximityPrompt") and prompt.Enabled and prompt.Parent and (prompt.Parent:IsA("BasePart") or prompt.Parent:IsA("Model")) then
+                    if (prompt.HoldDuration and prompt.HoldDuration > 0) then
+                        prompt.HoldDuration = 0
+                        prompt:InputHoldBegin()
+                        prompt:InputHoldEnd()
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function disableInstantInteract()
+    if promptConnection then promptConnection:Disconnect() promptConnection = nil end
+end
+
+MiscTab:CreateButton({
+    Name = "Enable Instant Interact (E)",
+    Callback = function()
+        instantInteractEnabled = true
+        enableInstantInteract()
+    end,
+})
+
+MiscTab:CreateButton({
+    Name = "Disable Instant Interact (E)",
+    Callback = function()
+        instantInteractEnabled = false
+        disableInstantInteract()
     end,
 })
 
