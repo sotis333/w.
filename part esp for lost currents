@@ -80,25 +80,81 @@ local function highlightParts(partName, color, label)
     end
 end
 
-Tab:CreateButton({
-   Name = "Highlight Gold",
-   Callback = function()
-      highlightParts("gold", highlightColor, "GOLD")
-   end,
+
+local espStates = {
+    gold = false,
+    scrap = false,
+    helmet = false,
+}
+
+local function setESP(partName, color, label, enabled)
+    for _, part in ipairs(workspace:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name:lower() == partName:lower() then
+            if enabled then
+                part.Color = color
+                part.Material = Enum.Material.Neon
+                part.Transparency = highlightTransparency
+                if not part:FindFirstChild("ESPGui") then
+                    local esp = Instance.new("BillboardGui")
+                    esp.Name = "ESPGui"
+                    esp.Adornee = part
+                    esp.Size = UDim2.new(0, 100, 0, 40)
+                    esp.AlwaysOnTop = true
+                    esp.LightInfluence = 0
+                    esp.StudsOffset = Vector3.new(0, part.Size.Y/2 + 0.5, 0)
+                    esp.Parent = part
+
+                    local frame = Instance.new("Frame")
+                    frame.Size = UDim2.new(1, 0, 1, 0)
+                    frame.BackgroundTransparency = 0.3
+                    frame.BackgroundColor3 = color
+                    frame.BorderSizePixel = 0
+                    frame.Parent = esp
+
+                    local text = Instance.new("TextLabel")
+                    text.Size = UDim2.new(1, 0, 1, 0)
+                    text.BackgroundTransparency = 1
+                    text.Text = label
+                    text.TextColor3 = Color3.new(1, 1, 1)
+                    text.TextStrokeTransparency = 0.5
+                    text.TextScaled = true
+                    text.Font = Enum.Font.GothamBold
+                    text.Parent = esp
+                end
+            else
+                local gui = part:FindFirstChild("ESPGui")
+                if gui then gui:Destroy() end
+                -- Optionally reset color/material/transparency here if needed
+            end
+        end
+    end
+end
+
+Tab:CreateToggle({
+    Name = "Gold ESP",
+    CurrentValue = false,
+    Callback = function(state)
+        espStates.gold = state
+        setESP("gold", highlightColor, "GOLD", state)
+    end,
 })
 
-Tab:CreateButton({
-   Name = "Highlight Scrap",
-   Callback = function()
-      highlightParts("scrap", scrapsColor, "SCRAP")
-   end,
+Tab:CreateToggle({
+    Name = "Scrap ESP",
+    CurrentValue = false,
+    Callback = function(state)
+        espStates.scrap = state
+        setESP("scrap", scrapsColor, "SCRAP", state)
+    end,
 })
 
-Tab:CreateButton({
-   Name = "Highlight Helmet",
-   Callback = function()
-      highlightParts("helmet", helmetColor, "HELMET")
-   end,
+Tab:CreateToggle({
+    Name = "Helmet ESP",
+    CurrentValue = false,
+    Callback = function(state)
+        espStates.helmet = state
+        setESP("helmet", helmetColor, "HELMET", state)
+    end,
 })
 
 Tab:CreateButton({
