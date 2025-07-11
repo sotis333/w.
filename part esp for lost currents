@@ -108,4 +108,162 @@ Tab:CreateButton({
    end,
 })
 
+
+-- Player tab and features
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Character = nil
+local Humanoid = nil
+local walkSpeedConnection = nil
+
+local flyEnabled = false
+local flySpeed = 50
+local walkSpeed = 16
+
+local function getCharacter()
+    Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    Humanoid = Character:FindFirstChildOfClass("Humanoid")
+end
+
+getCharacter()
+LocalPlayer.CharacterAdded:Connect(getCharacter)
+
+
+local function setWalkSpeed(speed)
+    if Humanoid then
+        Humanoid.WalkSpeed = speed
+    end
+end
+
+
+-- Prevent walkspeed from resetting
+local function monitorWalkSpeed()
+    if Humanoid then
+        if walkSpeedConnection then
+            walkSpeedConnection:Disconnect()
+        end
+        walkSpeedConnection = Humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+            if Humanoid.WalkSpeed ~= walkSpeed then
+                Humanoid.WalkSpeed = walkSpeed
+            end
+        end)
+    end
+end
+
+local function getCharacter()
+    Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    Humanoid = Character:FindFirstChildOfClass("Humanoid")
+    setWalkSpeed(walkSpeed)
+    monitorWalkSpeed()
+    if Humanoid then
+        Humanoid:GetPropertyChangedSignal("Parent"):Connect(function()
+            if not Humanoid.Parent then
+                if walkSpeedConnection then walkSpeedConnection:Disconnect() end
+            end
+        end)
+    end
+end
+
+
+-- Fly logic with directional control
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local flyConnection = nil
+local flyBody = nil
+local flyDirection = Vector3.new()
+
+local function getRoot()
+    return Character and (Character.PrimaryPart or Character:FindFirstChild("HumanoidRootPart"))
+end
+
+local function updateFlyBody()
+    if flyBody and getRoot() then
+        local cam = workspace.CurrentCamera
+        local moveDir = Vector3.new()
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            moveDir = moveDir + cam.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            moveDir = moveDir - cam.CFrame.LookVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            moveDir = moveDir - cam.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            moveDir = moveDir + cam.CFrame.RightVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            moveDir = moveDir + cam.CFrame.UpVector
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            moveDir = moveDir - cam.CFrame.UpVector
+        end
+        if moveDir.Magnitude > 0 then
+            moveDir = moveDir.Unit
+        end
+        flyBody.Velocity = moveDir * flySpeed
+    end
+end
+
+local function startFly()
+    if not Character or not Humanoid then return end
+    if flyBody then return end
+    local root = getRoot()
+    if not root then return end
+    flyBody = Instance.new("BodyVelocity")
+    flyBody.Name = "SotisFly"
+    flyBody.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+    flyBody.Velocity = Vector3.new()
+    flyBody.Parent = root
+    flyConnection = RunService.RenderStepped:Connect(updateFlyBody)
+end
+
+local function stopFly()
+    if flyConnection then flyConnection:Disconnect() flyConnection = nil end
+    if flyBody then flyBody:Destroy() flyBody = nil end
+end
+
+local function updateFlySpeed(speed)
+    flySpeed = speed
+end
+
+local PlayerTab = Window:CreateTab("Player", 4483362458)
+local PlayerSection = PlayerTab:CreateSection("Player Controls")
+
+PlayerTab:CreateToggle({
+    Name = "Fly",
+    CurrentValue = false,
+    Callback = function(state)
+        flyEnabled = state
+        if flyEnabled then
+            startFly()
+        else
+            stopFly()
+        end
+    end,
+})
+
+PlayerTab:CreateSlider({
+    Name = "Fly Speed",
+    Range = {1, 100},
+    Increment = 1,
+    CurrentValue = flySpeed,
+    Callback = function(value)
+        updateFlySpeed(value)
+    end,
+})
+
+PlayerTab:CreateSlider({
+    Name = "WalkSpeed",
+    Range = {1, 300},
+    Increment = 1,
+    CurrentValue = walkSpeed,
+    Callback = function(value)
+        walkSpeed = value
+        setWalkSpeed(walkSpeed)
+        monitorWalkSpeed()
+    end,
+})
+
 Rayfield:LoadConfiguration()
