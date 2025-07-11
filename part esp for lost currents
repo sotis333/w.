@@ -172,6 +172,9 @@ local Character = nil
 local Humanoid = nil
 local walkSpeedConnection = nil
 
+
+local noclipEnabled = false
+local noclipConnection = nil
 local flyEnabled = false
 local flySpeed = 50
 local walkSpeed = 16
@@ -284,8 +287,43 @@ local function updateFlySpeed(speed)
     flySpeed = speed
 end
 
+
+local function setNoclip(state)
+    noclipEnabled = state
+    if noclipEnabled then
+        if noclipConnection then noclipConnection:Disconnect() end
+        noclipConnection = RunService.Stepped:Connect(function()
+            if Character then
+                for _, part in ipairs(Character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if noclipConnection then noclipConnection:Disconnect() noclipConnection = nil end
+        if Character then
+            for _, part in ipairs(Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+end
+
 local PlayerTab = Window:CreateTab("Player", 4483362458)
 local PlayerSection = PlayerTab:CreateSection("Player Controls")
+
+
+PlayerTab:CreateToggle({
+    Name = "Noclip",
+    CurrentValue = false,
+    Callback = function(state)
+        setNoclip(state)
+    end,
+})
 
 PlayerTab:CreateToggle({
     Name = "Fly",
